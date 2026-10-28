@@ -1,0 +1,31 @@
+# הגדרת פריסה ל־Render. מסד הנתונים מוגדר בנפרד (למשל Neon או Supabase),
+# והכתובת שלו נכנסת ל־DATABASE_URL בהגדרות השירות.
+services:
+  - type: web
+    name: kitchen-helper-server
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: SHABBAT_GUARD
+        value: "true"
+      - key: MANAGER_CODE
+        sync: false
+      - key: TIMEZONE
+        value: Asia/Jerusalem

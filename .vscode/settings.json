@@ -1,0 +1,7 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnSave": true,
+  "[prisma]": { "editor.defaultFormatter": "Prisma.prisma" },
+  "files.exclude": { "dist": true },
+  "search.exclude": { "node_modules": true, "dist": true }
+}

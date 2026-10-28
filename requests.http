@@ -1,0 +1,32 @@
+### קובץ בדיקה מהירה ב־VS Code (תוסף REST Client): לוחצים "Send Request" מעל כל בקשה.
+### אפשר לבדוק גם ב־Swagger: http://localhost:4000/api-docs
+
+@base = http://localhost:4000/api
+
+### בדיקת בריאות
+GET {{base}}/health
+
+### כניסה כמנהלת. מעתיקים את ה־token מהתשובה לשורה @token למטה
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "manager@example.com", "password": "Manager123" }
+
+###
+@token = הדביקי-כאן-את-ה-token
+
+### דף הבית
+GET {{base}}/today
+Authorization: Bearer {{token}}
+
+### מתכונים פרווה, ממוינים לפי זמן הכנה
+GET {{base}}/recipes?kosherType=PAREVE&sort=prepMinutes
+Authorization: Bearer {{token}}
+
+### התפריט של השבוע
+GET {{base}}/menu
+Authorization: Bearer {{token}}
+
+### רשימת הקניות
+GET {{base}}/shopping
+Authorization: Bearer {{token}}

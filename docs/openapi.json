@@ -1,0 +1,6206 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "מה מבשלים היום? API",
+    "version": "1.0.0",
+    "description": "שרת לאתר משפחתי לניהול המטבח: מלאי, מתכונים, תפריט שבועי וסעודות שבת, רשימת קניות ומשימות.\n\n**איך מתחברים מכאן:** פותחים את `POST /api/auth/login`, לוחצים Try it out, שולחים מייל וסיסמה מנתוני הדוגמה (manager@example.com / Manager123), מעתיקים את ה־token מהתשובה, לוחצים על הכפתור Authorize למעלה ומדביקים אותו.\n\nכל השגיאות חוזרות במבנה `{ \"error\": { \"code\", \"message\", \"details\" } }`.\n\n**שבת וחג:** מהדלקת נרות ועד הבדלה (זמני ירושלים) כל הנתיבים מחזירים 503 עם שעת צאת השבת, חוץ מ־`/api/health`."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "השרת הנוכחי"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "כללי"
+    },
+    {
+      "name": "התחברות"
+    },
+    {
+      "name": "דף הבית"
+    },
+    {
+      "name": "משק הבית"
+    },
+    {
+      "name": "מצרכים ומלאי"
+    },
+    {
+      "name": "מתכונים"
+    },
+    {
+      "name": "תפריט שבועי"
+    },
+    {
+      "name": "רשימת קניות"
+    },
+    {
+      "name": "משימות"
+    },
+    {
+      "name": "התראות"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "FORBIDDEN"
+              },
+              "message": {
+                "type": "string",
+                "example": "רק מנהלת הבית יכולה לבצע את הפעולה הזו"
+              },
+              "details": {
+                "description": "פירוט שדות שגויים (400), או שעת צאת השבת (503)"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "name": {
+            "type": "string",
+            "example": "רחל כהן"
+          },
+          "email": {
+            "type": "string",
+            "example": "manager@example.com"
+          },
+          "role": {
+            "type": "string",
+            "example": "MANAGER",
+            "enum": [
+              "MANAGER",
+              "MEMBER"
+            ]
+          },
+          "color": {
+            "type": "string",
+            "example": "#2c5c60"
+          },
+          "householdId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Ingredient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "name": {
+            "type": "string",
+            "example": "עגבניות"
+          },
+          "category": {
+            "type": "string",
+            "example": "DAIRY",
+            "enum": [
+              "PRODUCE",
+              "DAIRY",
+              "MEAT",
+              "PANTRY",
+              "SPICES",
+              "FROZEN"
+            ],
+            "description": "מחלקה בסופר"
+          },
+          "categoryLabel": {
+            "type": "string",
+            "example": "ירקות ופירות"
+          },
+          "unit": {
+            "type": "string",
+            "example": "יח׳"
+          },
+          "kosherType": {
+            "type": "string",
+            "example": "PAREVE",
+            "enum": [
+              "MEAT",
+              "DAIRY",
+              "PAREVE"
+            ],
+            "description": "בשרי / חלבי / פרווה"
+          },
+          "needsInspection": {
+            "type": "boolean",
+            "description": "דורש בדיקה מחרקים"
+          },
+          "inStock": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecipeCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "name": {
+            "type": "string",
+            "example": "שקשוקה"
+          },
+          "description": {
+            "type": "string",
+            "example": "שקשוקה ביתית בסיר אחד",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "example": "BREAKFAST",
+            "enum": [
+              "MAIN",
+              "SIDE",
+              "SALAD",
+              "SOUP",
+              "DESSERT",
+              "BAKED",
+              "BREAKFAST",
+              "SHABBAT_HOLIDAY"
+            ]
+          },
+          "categoryLabel": {
+            "type": "string",
+            "example": "ארוחת בוקר"
+          },
+          "kosherType": {
+            "type": "string",
+            "example": "PAREVE",
+            "enum": [
+              "MEAT",
+              "DAIRY",
+              "PAREVE"
+            ],
+            "description": "בשרי / חלבי / פרווה"
+          },
+          "kosherLabel": {
+            "type": "string",
+            "example": "פרווה"
+          },
+          "shabbatFriendly": {
+            "type": "boolean"
+          },
+          "difficulty": {
+            "type": "string",
+            "example": "EASY",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "difficultyLabel": {
+            "type": "string",
+            "example": "קל"
+          },
+          "prepMinutes": {
+            "type": "integer",
+            "example": 25
+          },
+          "servings": {
+            "type": "integer",
+            "example": 4
+          },
+          "color": {
+            "type": "string",
+            "example": "#c2410c",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "example": "ACTIVE",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ]
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "/api/recipes/3f1c.../image?v=1729000000000",
+            "nullable": true
+          },
+          "match": {
+            "type": "object",
+            "properties": {
+              "have": {
+                "type": "integer",
+                "example": 6
+              },
+              "total": {
+                "type": "integer",
+                "example": 7
+              },
+              "percent": {
+                "type": "integer",
+                "example": 86
+              }
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "פלפל אדום"
+            }
+          },
+          "canMakeNow": {
+            "type": "boolean"
+          },
+          "votesThisWeek": {
+            "type": "integer",
+            "example": 2
+          },
+          "votedByMe": {
+            "type": "boolean"
+          },
+          "isFavorite": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecipeDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RecipeCard"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scaledServings": {
+                "type": "integer",
+                "example": 6
+              },
+              "createdBy": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "רחל כהן"
+                  }
+                },
+                "nullable": true
+              },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ingredientId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "ביצים"
+                    },
+                    "category": {
+                      "type": "string",
+                      "example": "DAIRY",
+                      "enum": [
+                        "PRODUCE",
+                        "DAIRY",
+                        "MEAT",
+                        "PANTRY",
+                        "SPICES",
+                        "FROZEN"
+                      ],
+                      "description": "מחלקה בסופר"
+                    },
+                    "quantity": {
+                      "type": "number",
+                      "example": 9,
+                      "description": "כמות לפי scaledServings"
+                    },
+                    "originalQuantity": {
+                      "type": "number",
+                      "example": 6
+                    },
+                    "unit": {
+                      "type": "string",
+                      "example": "יח׳"
+                    },
+                    "isOptional": {
+                      "type": "boolean"
+                    },
+                    "toTaste": {
+                      "type": "boolean",
+                      "description": "כמות 0 = לפי הטעם"
+                    },
+                    "inStock": {
+                      "type": "boolean"
+                    },
+                    "needsInspection": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "text": {
+                      "type": "string",
+                      "example": "מטגנים בצל ופלפל"
+                    },
+                    "timerMinutes": {
+                      "type": "integer",
+                      "example": 10,
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "RecipeInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "שקשוקה"
+          },
+          "description": {
+            "type": "string",
+            "example": "שקשוקה ביתית בסיר אחד",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "example": "BREAKFAST",
+            "enum": [
+              "MAIN",
+              "SIDE",
+              "SALAD",
+              "SOUP",
+              "DESSERT",
+              "BAKED",
+              "BREAKFAST",
+              "SHABBAT_HOLIDAY"
+            ]
+          },
+          "kosherType": {
+            "type": "string",
+            "example": "PAREVE",
+            "enum": [
+              "MEAT",
+              "DAIRY",
+              "PAREVE"
+            ],
+            "description": "בשרי / חלבי / פרווה"
+          },
+          "shabbatFriendly": {
+            "type": "boolean"
+          },
+          "difficulty": {
+            "type": "string",
+            "example": "EASY",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "prepMinutes": {
+            "type": "integer",
+            "example": 25
+          },
+          "servings": {
+            "type": "integer",
+            "example": 4
+          },
+          "color": {
+            "type": "string",
+            "example": "#c2410c",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "example": "ACTIVE",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ],
+            "description": "רק בעריכה (PUT)"
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ingredientId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                },
+                "quantity": {
+                  "type": "number",
+                  "example": 5,
+                  "description": "0 = לפי הטעם"
+                },
+                "unit": {
+                  "type": "string",
+                  "example": "יח׳",
+                  "description": "לא חובה. ברירת מחדל: היחידה של המצרך"
+                },
+                "isOptional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ingredientId",
+                "quantity"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "example": "מטגנים בצל ופלפל"
+                },
+                "timerMinutes": {
+                  "type": "integer",
+                  "example": 10,
+                  "nullable": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "kosherType",
+          "difficulty",
+          "prepMinutes",
+          "servings",
+          "ingredients",
+          "steps"
+        ]
+      },
+      "MenuEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "meal": {
+            "type": "string",
+            "example": "DINNER",
+            "enum": [
+              "BREAKFAST",
+              "LUNCH",
+              "DINNER",
+              "SHABBAT_NIGHT",
+              "SHABBAT_DAY",
+              "SEUDA_SHLISHIT",
+              "YOM_TOV"
+            ],
+            "description": "סעודות שבת רק ביום שבת. סעודת חג רק ביום טוב"
+          },
+          "servings": {
+            "type": "integer",
+            "example": 4
+          },
+          "order": {
+            "type": "integer",
+            "example": 0
+          },
+          "recipe": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "שקשוקה"
+              },
+              "kosherType": {
+                "type": "string",
+                "example": "PAREVE",
+                "enum": [
+                  "MEAT",
+                  "DAIRY",
+                  "PAREVE"
+                ],
+                "description": "בשרי / חלבי / פרווה"
+              },
+              "color": {
+                "type": "string",
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "example": "ACTIVE"
+              },
+              "prepMinutes": {
+                "type": "integer",
+                "example": 25
+              },
+              "imageUrl": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "addedBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "רחל כהן"
+              }
+            },
+            "nullable": true
+          }
+        }
+      },
+      "MenuEntryResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MenuEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "mealEntries": {
+                "type": "integer",
+                "example": 2
+              },
+              "mixed": {
+                "type": "boolean",
+                "description": "באותה ארוחה יש גם בשרי וגם חלבי (לתשומת לב)"
+              }
+            }
+          }
+        ]
+      },
+      "DayInfo": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "dayOfWeek": {
+            "type": "integer",
+            "example": 4
+          },
+          "dayName": {
+            "type": "string",
+            "example": "חמישי"
+          },
+          "hebrewDate": {
+            "type": "string",
+            "example": "י״א חשון תשפ״ז"
+          },
+          "holidays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isYomTov": {
+            "type": "boolean"
+          },
+          "isShabbat": {
+            "type": "boolean"
+          },
+          "isToday": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TimeOfDay": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-10-23T14:18:00.000Z",
+            "format": "date-time"
+          },
+          "local": {
+            "type": "string",
+            "example": "17:18"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          }
+        }
+      },
+      "ShoppingItem": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "auto:3f1c...",
+            "description": "מזהה לשורה ברשימה. בפריט מהתפריט: auto:<ingredientId>"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "example": "REQUEST",
+            "enum": [
+              "AUTO",
+              "MANUAL",
+              "REQUEST"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "example": "PENDING",
+            "enum": [
+              "PENDING",
+              "OPEN",
+              "BOUGHT",
+              "DECLINED"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "שוקו"
+          },
+          "category": {
+            "type": "string",
+            "example": "DAIRY",
+            "enum": [
+              "PRODUCE",
+              "DAIRY",
+              "MEAT",
+              "PANTRY",
+              "SPICES",
+              "FROZEN"
+            ],
+            "description": "מחלקה בסופר"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 2,
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "example": "יח׳",
+            "nullable": true
+          },
+          "ingredientId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c",
+            "nullable": true
+          },
+          "forRecipes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "שקשוקה"
+            }
+          },
+          "requestedBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "יוסי"
+              }
+            },
+            "nullable": true
+          },
+          "boughtBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "שירה"
+              }
+            },
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "title": {
+            "type": "string",
+            "example": "לקלף תפוחי אדמה לקוגל"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "nullable": true
+          },
+          "isOverdue": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "example": "OPEN",
+            "enum": [
+              "OPEN",
+              "DONE"
+            ]
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isErevShabbat": {
+            "type": "boolean"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c",
+            "nullable": true
+          },
+          "assignedTo": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "יוסי"
+              },
+              "color": {
+                "type": "string",
+                "example": "#2c5c60"
+              }
+            }
+          },
+          "createdBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "רחל כהן"
+              }
+            },
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TaskTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "title": {
+            "type": "string",
+            "example": "להכין פלטה"
+          },
+          "daysBeforeShabbat": {
+            "type": "integer",
+            "example": 0
+          },
+          "dayLabel": {
+            "type": "string",
+            "example": "יום שישי"
+          },
+          "defaultAssignee": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+              },
+              "name": {
+                "type": "string",
+                "example": "יוסי"
+              }
+            },
+            "nullable": true
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+          },
+          "type": {
+            "type": "string",
+            "example": "SHOPPING_REQUEST",
+            "enum": [
+              "SHOPPING_REQUEST",
+              "REQUEST_APPROVED",
+              "REQUEST_DECLINED",
+              "TASK_ASSIGNED",
+              "TASK_DONE"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "example": "יוסי ביקש/ה: שוקו"
+          },
+          "link": {
+            "type": "string",
+            "example": "/shopping",
+            "nullable": true
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "בדיקת בריאות השרת ומסד הנתונים",
+        "description": "עובד גם בשבת, כדי ששירות הענן לא יחשוב שהשרת נפל.\n\n**הרשאה:** פתוח, בלי התחברות.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                },
+                "example": {
+                  "status": "ok",
+                  "database": "ok",
+                  "time": "2026-10-19T12:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "הרשמה: בוחרים תפקיד. מנהלת הבית צריכה קוד מנהלת",
+        "description": "כל מי שנרשמת מצטרפת לבית המשותף ומחוברת מיד (חוזר token).\n\n`role`: `MEMBER` (בן / בת משפחה) או `MANAGER` (מנהלת הבית). ב־`MANAGER` חובה `managerCode`, והוא צריך להתאים לקוד שבהגדרות השרת (`MANAGER_CODE`). קוד שגוי → 400.\n\n**הרשאה:** פתוח, בלי התחברות.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "יוסי"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "yossi@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Yossi1234"
+                  },
+                  "role": {
+                    "type": "string",
+                    "example": "MEMBER",
+                    "enum": [
+                      "MANAGER",
+                      "MEMBER"
+                    ]
+                  },
+                  "managerCode": {
+                    "type": "string",
+                    "example": "1357",
+                    "description": "רק כש־role הוא MANAGER"
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "password",
+                  "role"
+                ]
+              },
+              "example": {
+                "name": "יוסי",
+                "email": "yossi@example.com",
+                "password": "Yossi1234",
+                "role": "MEMBER"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIs..."
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    "household": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "משפחת כהן"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "יותר מדי בקשות או ניסיונות כניסה (TOO_MANY_REQUESTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "כניסה. מחזיר JWT להעתקה לכפתור Authorize",
+        "description": "5 ניסיונות שגויים לאותו מייל → נעילה ל־15 דקות.\n\n**הרשאה:** פתוח, בלי התחברות.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "manager@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "Manager123"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              },
+              "example": {
+                "email": "manager@example.com",
+                "password": "Manager123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIs..."
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "יותר מדי בקשות או ניסיונות כניסה (TOO_MANY_REQUESTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "המשתמש המחובר ומשק הבית שלו",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    "household": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "משפחת כהן"
+                        }
+                      }
+                    },
+                    "unreadNotifications": {
+                      "type": "integer",
+                      "example": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "עדכון שם, צבע וסיסמה (החלפת סיסמה דורשת את הסיסמה הנוכחית)",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "רחל"
+                  },
+                  "color": {
+                    "type": "string",
+                    "example": "#7a5ba8"
+                  },
+                  "currentPassword": {
+                    "type": "string",
+                    "example": "Manager123"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "example": "NewPass99"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/today": {
+      "get": {
+        "tags": [
+          "דף הבית"
+        ],
+        "summary": "כל הנתונים של דף ״היום״ בבקשה אחת",
+        "description": "מה מבשלים היום, ״אפשר להכין עכשיו״, ״חסר מצרך אחד״. מיום רביעי: פס ״לקראת שבת קודש״ (סעודות, מה חסר, משימות ערב שבת). למנהלת: בקשות שממתינות והמנות שהכי ביקשו השבוע. לבן משפחה: המשימות הפתוחות שלו.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "dayName": {
+                      "type": "string",
+                      "example": "שני"
+                    },
+                    "hebrewDate": {
+                      "type": "string",
+                      "example": "ח׳ חשון תשפ״ז"
+                    },
+                    "role": {
+                      "type": "string",
+                      "example": "MANAGER"
+                    },
+                    "unreadNotifications": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "todayMenu": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MenuEntry"
+                      }
+                    },
+                    "readyNow": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecipeCard"
+                      }
+                    },
+                    "missingOne": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/RecipeCard"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "missingIngredient": {
+                                "type": "string",
+                                "example": "פלפל אדום"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "shabbat": {
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "format": "date",
+                          "example": "2026-10-22"
+                        },
+                        "hebrewDate": {
+                          "type": "string"
+                        },
+                        "parasha": {
+                          "type": "string",
+                          "example": "פרשת לך־לך",
+                          "nullable": true
+                        },
+                        "candleLighting": {
+                          "$ref": "#/components/schemas/TimeOfDay",
+                          "nullable": true
+                        },
+                        "havdalah": {
+                          "$ref": "#/components/schemas/TimeOfDay",
+                          "nullable": true
+                        },
+                        "meals": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "meal": {
+                                "type": "string",
+                                "example": "DINNER",
+                                "enum": [
+                                  "BREAKFAST",
+                                  "LUNCH",
+                                  "DINNER",
+                                  "SHABBAT_NIGHT",
+                                  "SHABBAT_DAY",
+                                  "SEUDA_SHLISHIT",
+                                  "YOM_TOV"
+                                ],
+                                "description": "סעודות שבת רק ביום שבת. סעודת חג רק ביום טוב"
+                              },
+                              "label": {
+                                "type": "string",
+                                "example": "ליל שבת"
+                              },
+                              "entries": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/MenuEntry"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "missing": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ingredientId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string",
+                                "example": "DAIRY",
+                                "enum": [
+                                  "PRODUCE",
+                                  "DAIRY",
+                                  "MEAT",
+                                  "PANTRY",
+                                  "SPICES",
+                                  "FROZEN"
+                                ],
+                                "description": "מחלקה בסופר"
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": "number"
+                              },
+                              "forRecipes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "shabbatFriendlySuggestions": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RecipeCard"
+                          }
+                        },
+                        "tasks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "dueDate": {
+                                "type": "string",
+                                "format": "date",
+                                "example": "2026-10-22",
+                                "nullable": true
+                              },
+                              "assignedTo": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "example": "יוסי"
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "example": "#2c5c60"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "nullable": true
+                    },
+                    "pendingRequests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ShoppingItem"
+                      },
+                      "description": "למנהלת בלבד"
+                    },
+                    "topVoted": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecipeCard"
+                      },
+                      "description": "למנהלת בלבד"
+                    },
+                    "myOpenTasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      },
+                      "description": "לבן משפחה בלבד"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar/week": {
+      "get": {
+        "tags": [
+          "דף הבית"
+        ],
+        "summary": "לוח עברי לשבוע: תאריכים עבריים, פרשת השבוע, חגים, הדלקת נרות והבדלה (ירושלים)",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-22"
+            },
+            "description": "כל תאריך בשבוע. ברירת מחדל: היום"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weekStart": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "parasha": {
+                      "type": "string",
+                      "example": "פרשת לך־לך",
+                      "nullable": true
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DayInfo"
+                      }
+                    },
+                    "holidayDates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-22"
+                      }
+                    },
+                    "candleLighting": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeOfDay"
+                      }
+                    },
+                    "havdalah": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeOfDay"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/household": {
+      "get": {
+        "tags": [
+          "משק הבית"
+        ],
+        "summary": "פרטי הבית. מנהלת רואה גם את קוד ההצטרפות",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "משפחת כהן"
+                    },
+                    "membersCount": {
+                      "type": "integer",
+                      "example": 4
+                    },
+                    "inviteCode": {
+                      "type": "string",
+                      "example": "KITCHEN1",
+                      "description": "למנהלת בלבד"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/household/members": {
+      "get": {
+        "tags": [
+          "משק הבית"
+        ],
+        "summary": "בני הבית וכמה כוכבים לכל אחד",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/User"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "stars": {
+                            "type": "integer",
+                            "example": 3
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/household/members/{id}": {
+      "patch": {
+        "tags": [
+          "משק הבית"
+        ],
+        "summary": "שינוי תפקיד (מנהלת / בן משפחה)",
+        "description": "בבית צריכה להישאר לפחות מנהלת אחת.\n\n**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "example": "MANAGER",
+                    "enum": [
+                      "MANAGER",
+                      "MEMBER"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "משק הבית"
+        ],
+        "summary": "הסרת בן בית (אי אפשר להסיר את עצמך)",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/household/invite-code": {
+      "post": {
+        "tags": [
+          "משק הבית"
+        ],
+        "summary": "קוד הצטרפות חדש. הקוד הישן מפסיק לעבוד",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inviteCode": {
+                      "type": "string",
+                      "example": "Q7M2KX9P"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients": {
+      "get": {
+        "tags": [
+          "מצרכים ומלאי"
+        ],
+        "summary": "רשימת המצרכים של הבית (לטופס מתכון)",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "DAIRY",
+              "enum": [
+                "PRODUCE",
+                "DAIRY",
+                "MEAT",
+                "PANTRY",
+                "SPICES",
+                "FROZEN"
+              ]
+            },
+            "description": "סינון לפי מחלקה"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "חיפוש לפי שם"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Ingredient"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "מצרכים ומלאי"
+        ],
+        "summary": "מצרך חדש",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "חציל"
+                  },
+                  "category": {
+                    "type": "string",
+                    "example": "DAIRY",
+                    "enum": [
+                      "PRODUCE",
+                      "DAIRY",
+                      "MEAT",
+                      "PANTRY",
+                      "SPICES",
+                      "FROZEN"
+                    ],
+                    "description": "מחלקה בסופר"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "example": "יח׳"
+                  },
+                  "kosherType": {
+                    "type": "string",
+                    "example": "PAREVE",
+                    "enum": [
+                      "MEAT",
+                      "DAIRY",
+                      "PAREVE"
+                    ],
+                    "description": "בשרי / חלבי / פרווה"
+                  },
+                  "needsInspection": {
+                    "type": "boolean"
+                  },
+                  "inStock": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "category",
+                  "unit"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ingredient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredients/{id}": {
+      "patch": {
+        "tags": [
+          "מצרכים ומלאי"
+        ],
+        "summary": "עריכת מצרך (שם, מחלקה, יחידה, סוג, ״דורש בדיקה מחרקים״)",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string",
+                    "example": "DAIRY",
+                    "enum": [
+                      "PRODUCE",
+                      "DAIRY",
+                      "MEAT",
+                      "PANTRY",
+                      "SPICES",
+                      "FROZEN"
+                    ],
+                    "description": "מחלקה בסופר"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "kosherType": {
+                    "type": "string",
+                    "example": "PAREVE",
+                    "enum": [
+                      "MEAT",
+                      "DAIRY",
+                      "PAREVE"
+                    ],
+                    "description": "בשרי / חלבי / פרווה"
+                  },
+                  "needsInspection": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ingredient"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pantry": {
+      "get": {
+        "tags": [
+          "מצרכים ומלאי"
+        ],
+        "summary": "״מה יש בבית״: כל המצרכים לפי מחלקות, עם יש / אין",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inStockCount": {
+                      "type": "integer",
+                      "example": 22
+                    },
+                    "total": {
+                      "type": "integer",
+                      "example": 40
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string",
+                            "example": "DAIRY",
+                            "enum": [
+                              "PRODUCE",
+                              "DAIRY",
+                              "MEAT",
+                              "PANTRY",
+                              "SPICES",
+                              "FROZEN"
+                            ],
+                            "description": "מחלקה בסופר"
+                          },
+                          "label": {
+                            "type": "string",
+                            "example": "חלב וביצים"
+                          },
+                          "inStockCount": {
+                            "type": "integer",
+                            "example": 3
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "ingredientId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "example": "ביצים"
+                                },
+                                "unit": {
+                                  "type": "string"
+                                },
+                                "kosherType": {
+                                  "type": "string",
+                                  "example": "PAREVE",
+                                  "enum": [
+                                    "MEAT",
+                                    "DAIRY",
+                                    "PAREVE"
+                                  ],
+                                  "description": "בשרי / חלבי / פרווה"
+                                },
+                                "needsInspection": {
+                                  "type": "boolean"
+                                },
+                                "inStock": {
+                                  "type": "boolean"
+                                },
+                                "updatedAt": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "updatedBy": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pantry/{ingredientId}": {
+      "patch": {
+        "tags": [
+          "מצרכים ומלאי"
+        ],
+        "summary": "סימון יש / אין. ״נגמר״ מוסיף את המצרך לרשימת הקניות",
+        "description": "בן משפחה יכול רק לסמן ״נגמר״ (inStock: false). סימון ״יש בבית״ על ידי בן משפחה → 403.\n\n**הרשאה:** ראו פירוט בתיאור.",
+        "parameters": [
+          {
+            "name": "ingredientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "inStock": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "inStock"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ingredientId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "חלב"
+                    },
+                    "inStock": {
+                      "type": "boolean"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "addedToShopping": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes": {
+      "get": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "רשימת מתכונים עם חיפוש, סינון, מיון וחלוקה לעמודים",
+        "description": "בן משפחה רואה רק מתכונים פעילים. השדות match, missing, canMakeNow, votesThisWeek, isFavorite מחושבים בשרת בכל בקשה.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "חיפוש לפי שם"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "BREAKFAST",
+              "enum": [
+                "MAIN",
+                "SIDE",
+                "SALAD",
+                "SOUP",
+                "DESSERT",
+                "BAKED",
+                "BREAKFAST",
+                "SHABBAT_HOLIDAY"
+              ]
+            },
+            "description": "קטגוריה"
+          },
+          {
+            "name": "kosherType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "PAREVE",
+              "enum": [
+                "MEAT",
+                "DAIRY",
+                "PAREVE"
+              ]
+            },
+            "description": "בשרי / חלבי / פרווה"
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "EASY",
+              "enum": [
+                "EASY",
+                "MEDIUM",
+                "HARD"
+              ]
+            },
+            "description": "רמת קושי"
+          },
+          {
+            "name": "maxMinutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "זמן הכנה מקסימלי בדקות"
+          },
+          {
+            "name": "shabbatFriendly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "מתאים לשבת"
+          },
+          {
+            "name": "ready",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true = יש הכול בבית"
+          },
+          {
+            "name": "favorites",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "true = רק המועדפים שלי"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "ARCHIVED",
+                "ALL"
+              ]
+            },
+            "description": "למנהלת. ברירת מחדל ACTIVE"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "prepMinutes",
+                "match",
+                "votes",
+                "createdAt"
+              ]
+            },
+            "description": "מיון. ברירת מחדל name"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "description": "כיוון המיון"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "עמוד (מ־1)"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "כמה בעמוד (עד 100, ברירת מחדל 20)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "example": 12
+                    },
+                    "page": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "pageSize": {
+                      "type": "integer",
+                      "example": 20
+                    },
+                    "totalPages": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecipeCard"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "מתכון חדש עם מצרכים ושלבים",
+        "description": "השרת בודק שסוג המתכון מתאים למצרכים: מצרך בשרי → בשרי, מצרך חלבי → חלבי, ובשר וחלב יחד → 400.\n\n**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/wheel": {
+      "get": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "הגלגל: עד 10 מתכונים אקראיים",
+        "description": "״ממה שיש״ (ready): מתכונים שחסר להם לכל היותר מצרך אחד. אם יש פחות מ־2 כאלה, חוזרים כל המתכונים ו־usedFallback הוא true.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "all"
+              ]
+            },
+            "description": "ברירת מחדל ready"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "example": "ready"
+                    },
+                    "usedFallback": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecipeCard"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}": {
+      "get": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "מתכון מלא: מצרכים (✓ / ✗), שלבים וטיימרים, עם כמויות לפי מספר מנות",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          },
+          {
+            "name": "servings",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "לכמה מנות לחשב את הכמויות (1-50)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "עריכת מתכון (המצרכים והשלבים מוחלפים ברשימה החדשה)",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}/status": {
+      "patch": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "העברה לארכיון או החזרה לפעיל",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "example": "ARCHIVED",
+                    "enum": [
+                      "ACTIVE",
+                      "ARCHIVED"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}/image": {
+      "get": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "תמונת המתכון (פתוח בלי token, כדי שתגית img תוכל להציג)",
+        "description": "**הרשאה:** פתוח, בלי התחברות.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "קובץ התמונה",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "העלאת תמונה (JPG או PNG, עד 2MB). נשמרת בשרת, בלי קישור לאתר חיצוני",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPG או PNG, עד 2MB"
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "imageUrl": {
+                      "type": "string",
+                      "example": "/api/recipes/3f1c.../image?v=1729000000000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "מחיקת התמונה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}/vote": {
+      "post": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "״רוצה את זה השבוע״",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "votesThisWeek": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "votedByMe": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "ביטול ההצבעה שלי",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "votesThisWeek": {
+                      "type": "integer",
+                      "example": 2
+                    },
+                    "votedByMe": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recipes/{id}/favorite": {
+      "post": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "סימון כמועדף",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "מתכונים"
+        ],
+        "summary": "הסרה מהמועדפים",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu": {
+      "get": {
+        "tags": [
+          "תפריט שבועי"
+        ],
+        "summary": "התפריט של שבוע: ימים ראשון עד שישי, וסעודות השבת, עם תאריך עברי ופרשה",
+        "description": "בכל ארוחה mixed=true אם יש בה גם מנה בשרית וגם חלבית. בשבוע עם חג נוספת ארוחת YOM_TOV ביום החג.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "week",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-22"
+            },
+            "description": "כל תאריך בשבוע. ברירת מחדל: השבוע הנוכחי"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weekStart": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "weekEnd": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "parasha": {
+                      "type": "string",
+                      "example": "פרשת לך־לך",
+                      "nullable": true
+                    },
+                    "candleLighting": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeOfDay"
+                      }
+                    },
+                    "havdalah": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeOfDay"
+                      }
+                    },
+                    "mixedMeals": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/DayInfo"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "meals": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "meal": {
+                                      "type": "string",
+                                      "example": "DINNER",
+                                      "enum": [
+                                        "BREAKFAST",
+                                        "LUNCH",
+                                        "DINNER",
+                                        "SHABBAT_NIGHT",
+                                        "SHABBAT_DAY",
+                                        "SEUDA_SHLISHIT",
+                                        "YOM_TOV"
+                                      ],
+                                      "description": "סעודות שבת רק ביום שבת. סעודת חג רק ביום טוב"
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "example": "ערב"
+                                    },
+                                    "mixed": {
+                                      "type": "boolean"
+                                    },
+                                    "entries": {
+                                      "type": "array",
+                                      "items": {
+                                        "$ref": "#/components/schemas/MenuEntry"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "תפריט שבועי"
+        ],
+        "summary": "שיבוץ מתכון לארוחה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-10-22"
+                  },
+                  "meal": {
+                    "type": "string",
+                    "example": "DINNER",
+                    "enum": [
+                      "BREAKFAST",
+                      "LUNCH",
+                      "DINNER",
+                      "SHABBAT_NIGHT",
+                      "SHABBAT_DAY",
+                      "SEUDA_SHLISHIT",
+                      "YOM_TOV"
+                    ],
+                    "description": "סעודות שבת רק ביום שבת. סעודת חג רק ביום טוב"
+                  },
+                  "recipeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "servings": {
+                    "type": "integer",
+                    "example": 6
+                  }
+                },
+                "required": [
+                  "date",
+                  "meal",
+                  "recipeId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuEntryResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}": {
+      "patch": {
+        "tags": [
+          "תפריט שבועי"
+        ],
+        "summary": "הזזה אחרי גרירה (תאריך, ארוחה, מיקום) או שינוי מספר מנות",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-10-22"
+                  },
+                  "meal": {
+                    "type": "string",
+                    "example": "DINNER",
+                    "enum": [
+                      "BREAKFAST",
+                      "LUNCH",
+                      "DINNER",
+                      "SHABBAT_NIGHT",
+                      "SHABBAT_DAY",
+                      "SEUDA_SHLISHIT",
+                      "YOM_TOV"
+                    ],
+                    "description": "סעודות שבת רק ביום שבת. סעודת חג רק ביום טוב"
+                  },
+                  "order": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "servings": {
+                    "type": "integer",
+                    "example": 4
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuEntryResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "תפריט שבועי"
+        ],
+        "summary": "הסרה מהתפריט",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping": {
+      "get": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "רשימת הקניות לפי מחלקות: מהתפריט (פחות מה שיש בבית), ידני ובקשות שאושרו",
+        "description": "ארוחות שכבר עברו לא נכנסות. requests: למנהלת כל הבקשות, לבן משפחה רק שלו.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "week",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-10-22"
+            },
+            "description": "כל תאריך בשבוע. ברירת מחדל: השבוע הנוכחי"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weekStart": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "from": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "progress": {
+                      "type": "object",
+                      "properties": {
+                        "bought": {
+                          "type": "integer",
+                          "example": 3
+                        },
+                        "total": {
+                          "type": "integer",
+                          "example": 12
+                        },
+                        "percent": {
+                          "type": "integer",
+                          "example": 25
+                        }
+                      }
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string",
+                            "example": "DAIRY",
+                            "enum": [
+                              "PRODUCE",
+                              "DAIRY",
+                              "MEAT",
+                              "PANTRY",
+                              "SPICES",
+                              "FROZEN"
+                            ],
+                            "description": "מחלקה בסופר"
+                          },
+                          "label": {
+                            "type": "string",
+                            "example": "חלב וביצים"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/ShoppingItem"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ShoppingItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "הוספת פריט. מנהלת: נכנס מיד. בן משפחה: בקשה שממתינה לאישור + התראה למנהלות",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "שוקו"
+                  },
+                  "category": {
+                    "type": "string",
+                    "example": "DAIRY",
+                    "enum": [
+                      "PRODUCE",
+                      "DAIRY",
+                      "MEAT",
+                      "PANTRY",
+                      "SPICES",
+                      "FROZEN"
+                    ],
+                    "description": "מחלקה בסופר"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "example": 2
+                  },
+                  "unit": {
+                    "type": "string",
+                    "example": "יח׳"
+                  },
+                  "ingredientId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  }
+                },
+                "required": [
+                  "name",
+                  "category"
+                ]
+              },
+              "example": {
+                "name": "שוקו",
+                "category": "DAIRY"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping/requests": {
+      "get": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "בקשות קניה. מנהלת: כולן. בן משפחה: רק שלו",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping/bought": {
+      "patch": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "סימון ״קניתי״ או ביטול",
+        "description": "פריט שנוסף (MANUAL / REQUEST) מזוהה לפי itemId. פריט מהתפריט (AUTO) מזוהה לפי ingredientId.\n\n**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "ingredientId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "bought": {
+                    "type": "boolean"
+                  },
+                  "week": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-10-22"
+                  }
+                },
+                "required": [
+                  "bought"
+                ]
+              },
+              "example": {
+                "ingredientId": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c",
+                "bought": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping/finish": {
+      "post": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "״סיימתי לקנות״: כל מה שנקנה עובר ל״יש בבית״ ויוצא מהרשימה (טרנזקציה אחת)",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "movedToPantry": {
+                      "type": "integer",
+                      "example": 8
+                    },
+                    "removedItems": {
+                      "type": "integer",
+                      "example": 9
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "8 מצרכים נכנסו למלאי"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping/{id}/review": {
+      "patch": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "אישור או דחייה של בקשה + התראה למבקש",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "example": "approve",
+                    "enum": [
+                      "approve",
+                      "decline"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "התנגשות: כפילות, או פעולה שכבר בוצעה (CONFLICT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping/{id}": {
+      "delete": {
+        "tags": [
+          "רשימת קניות"
+        ],
+        "summary": "מחיקת פריט מהרשימה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "משימות. מנהלת: כולן. בן משפחה: רק שלו",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "DONE"
+              ]
+            }
+          },
+          {
+            "name": "assignedTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            },
+            "description": "למנהלת: משימות של בן בית מסוים"
+          },
+          {
+            "name": "isErevShabbat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "חיפוש בכותרת"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "dueDate",
+                "createdAt",
+                "title"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "example": 12
+                    },
+                    "page": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "pageSize": {
+                      "type": "integer",
+                      "example": 20
+                    },
+                    "totalPages": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "משימה חדשה + התראה לבן הבית",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "לקלף תפוחי אדמה לקוגל"
+                  },
+                  "assignedToId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-10-22",
+                    "nullable": true
+                  },
+                  "isErevShabbat": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "title",
+                  "assignedToId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/stars": {
+      "get": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "לוח כוכבי עזרה: כוכב על כל משימה שהושלמה",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "שירה"
+                      },
+                      "color": {
+                        "type": "string"
+                      },
+                      "stars": {
+                        "type": "integer",
+                        "example": 4
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/erev-shabbat": {
+      "post": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "חלוקת המשימות הקבועות לערב שבת של השבוע",
+        "description": "למי: לפי assignments, ואם לא נשלח, לפי ברירת המחדל של המשימה הקבועה. משימה שכבר חולקה השבוע לא נוצרת שוב.\n\n**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "templateId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                        },
+                        "assignedToId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                        }
+                      },
+                      "required": [
+                        "templateId",
+                        "assignedToId"
+                      ]
+                    }
+                  }
+                }
+              },
+              "example": {
+                "assignments": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "friday": {
+                      "type": "string",
+                      "format": "date",
+                      "example": "2026-10-22"
+                    },
+                    "created": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    },
+                    "skipped": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "templateId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "example": "כבר חולקה השבוע"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}": {
+      "patch": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "עריכת משימה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "assignedToId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-10-22",
+                    "nullable": true
+                  },
+                  "status": {
+                    "type": "string",
+                    "example": "DONE",
+                    "enum": [
+                      "OPEN",
+                      "DONE"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "מחיקת משימה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/toggle": {
+      "patch": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "״סיימתי״ / ביטול. בן משפחה רק על משימה שלו",
+        "description": "כשבן משפחה מסיים משימה, המנהלות מקבלות התראה.\n\n**הרשאה:** ראו פירוט בתיאור.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-templates": {
+      "get": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "המשימות הקבועות לערב שבת",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskTemplate"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "משימה קבועה חדשה (0 = שישי, 1 = חמישי, 2 = רביעי)",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "להכין פלטה"
+                  },
+                  "daysBeforeShabbat": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "defaultAssigneeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-templates/{id}": {
+      "delete": {
+        "tags": [
+          "משימות"
+        ],
+        "summary": "מחיקת משימה קבועה",
+        "description": "**הרשאה:** מנהלת הבית בלבד (MANAGER). בן משפחה יקבל 403.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "אין הרשאה לפעולה (FORBIDDEN)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "לא נמצא, או שייך למשפחה אחרת (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "התראות"
+        ],
+        "summary": "ההתראות שלי (50 האחרונות)",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unreadCount": {
+                      "type": "integer",
+                      "example": 2
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Notification"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read": {
+      "patch": {
+        "tags": [
+          "התראות"
+        ],
+        "summary": "סימון כנקרא: כולן, או רק ids שנשלחו",
+        "description": "**הרשאה:** כל משתמש מחובר (מנהלת הבית או בן משפחה). רואים רק נתונים של הבית שלהם.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "3f1c2a8e-6b2d-4c1e-9a7b-2d4e5f6a7b8c"
+                    }
+                  }
+                }
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "בוצע בהצלחה, בלי תוכן"
+          },
+          "400": {
+            "description": "שדות חסרים או לא תקינים (VALIDATION_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "חסר Token, או שהוא לא תקין או פג (UNAUTHORIZED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "שבת או חג: האתר סגור עד צאת השבת (SHABBAT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

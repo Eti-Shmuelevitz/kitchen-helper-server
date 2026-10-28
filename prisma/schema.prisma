@@ -1,0 +1,355 @@
+// מבנה מסד הנתונים של ״מה מבשלים היום?״
+// כל טבלה שקשורה למשפחה כוללת householdId, וכך כל משפחה רואה רק את הנתונים שלה.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MANAGER // מנהלת הבית
+  MEMBER // בן / בת משפחה
+}
+
+enum Department {
+  PRODUCE // ירקות ופירות
+  DAIRY // חלב וביצים
+  MEAT // בשר, עוף ודגים
+  PANTRY // מזווה ויבשים
+  SPICES // תבלינים ורטבים
+  FROZEN // קפואים ואחר
+}
+
+enum KosherType {
+  MEAT // בשרי
+  DAIRY // חלבי
+  PAREVE // פרווה
+}
+
+enum RecipeCategory {
+  MAIN // מנה עיקרית
+  SIDE // תוספת
+  SALAD // סלט
+  SOUP // מרק
+  DESSERT // קינוח
+  BAKED // מאפה
+  BREAKFAST // ארוחת בוקר
+  SHABBAT_HOLIDAY // מנה לשבת ולחג
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum RecipeStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum Meal {
+  BREAKFAST // בוקר
+  LUNCH // צהריים
+  DINNER // ערב
+  SHABBAT_NIGHT // ליל שבת
+  SHABBAT_DAY // סעודת שבת
+  SEUDA_SHLISHIT // סעודה שלישית
+  YOM_TOV // סעודת חג
+}
+
+enum ShoppingSource {
+  AUTO // נוצר מהתפריט
+  MANUAL // נוסף ידנית או כש״נגמר״ במלאי
+  REQUEST // בקשה של בן משפחה
+}
+
+enum ShoppingStatus {
+  PENDING // בקשה שממתינה לאישור
+  OPEN // צריך לקנות
+  BOUGHT // נקנה
+  DECLINED // בקשה שנדחתה
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+}
+
+enum NotificationType {
+  SHOPPING_REQUEST
+  REQUEST_APPROVED
+  REQUEST_DECLINED
+  TASK_ASSIGNED
+  TASK_DONE
+}
+
+model Household {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(60)
+  inviteCode String   @unique @db.VarChar(8)
+  createdAt  DateTime @default(now())
+
+  users         User[]
+  ingredients   Ingredient[]
+  pantryItems   PantryItem[]
+  recipes       Recipe[]
+  menuEntries   MenuEntry[]
+  shoppingItems ShoppingItem[]
+  tasks         Task[]
+  taskTemplates TaskTemplate[]
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  householdId  String   @db.Uuid
+  name         String   @db.VarChar(30)
+  email        String   @unique @db.VarChar(120)
+  passwordHash String
+  role         Role     @default(MEMBER)
+  color        String   @default("#2c5c60") @db.VarChar(7)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household         Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipesCreated    Recipe[]       @relation("RecipeCreatedBy")
+  menuEntriesAdded  MenuEntry[]    @relation("MenuAddedBy")
+  pantryUpdates     PantryItem[]   @relation("PantryUpdatedBy")
+  shoppingRequested ShoppingItem[] @relation("ShoppingRequestedBy")
+  shoppingReviewed  ShoppingItem[] @relation("ShoppingReviewedBy")
+  shoppingBought    ShoppingItem[] @relation("ShoppingBoughtBy")
+  tasksAssigned     Task[]         @relation("TaskAssignedTo")
+  tasksCreated      Task[]         @relation("TaskCreatedBy")
+  templatesAssigned TaskTemplate[] @relation("TemplateAssignee")
+  votes             Vote[]
+  favorites         Favorite[]
+  notifications     Notification[]
+
+  @@index([householdId])
+}
+
+model Ingredient {
+  id              String     @id @default(uuid()) @db.Uuid
+  householdId     String     @db.Uuid
+  name            String     @db.VarChar(40)
+  category        Department
+  unit            String     @db.VarChar(15)
+  kosherType      KosherType @default(PAREVE)
+  needsInspection Boolean    @default(false) // דורש בדיקה מחרקים
+  createdAt       DateTime   @default(now())
+
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pantryItem    PantryItem?
+  recipeUses    RecipeIngredient[]
+  shoppingItems ShoppingItem[]
+
+  @@unique([householdId, name])
+}
+
+model PantryItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  householdId  String   @db.Uuid
+  ingredientId String   @unique @db.Uuid
+  inStock      Boolean  @default(false)
+  updatedById  String?  @db.Uuid
+  updatedAt    DateTime @updatedAt
+
+  household  Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  updatedBy  User?      @relation("PantryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+}
+
+model Recipe {
+  id              String         @id @default(uuid()) @db.Uuid
+  householdId     String         @db.Uuid
+  name            String         @db.VarChar(60)
+  description     String?        @db.VarChar(300)
+  category        RecipeCategory
+  kosherType      KosherType
+  shabbatFriendly Boolean        @default(false)
+  difficulty      Difficulty
+  prepMinutes     Int
+  servings        Int
+  color           String?        @db.VarChar(7)
+  status          RecipeStatus   @default(ACTIVE)
+  createdById     String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy   User?              @relation("RecipeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  ingredients RecipeIngredient[]
+  steps       RecipeStep[]
+  image       RecipeImage?
+  menuEntries MenuEntry[]
+  votes       Vote[]
+  favorites   Favorite[]
+
+  @@unique([householdId, name])
+  @@index([householdId, status])
+}
+
+// תמונת המתכון נשמרת במסד הנתונים עצמו, כדי שלא תימחק כששרת חינמי מתחיל מחדש,
+// וכדי שהאתר לא יצטרך תמונות מאתרים חיצוניים (אינטרנט מסונן).
+model RecipeImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @unique @db.Uuid
+  mimeType  String   @db.VarChar(20)
+  data      Bytes
+  updatedAt DateTime @updatedAt
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+model RecipeIngredient {
+  id           String  @id @default(uuid()) @db.Uuid
+  recipeId     String  @db.Uuid
+  ingredientId String  @db.Uuid
+  quantity     Float // 0 = לפי הטעם
+  unit         String  @db.VarChar(15)
+  isOptional   Boolean @default(false)
+
+  recipe     Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([recipeId, ingredientId])
+}
+
+model RecipeStep {
+  id           String @id @default(uuid()) @db.Uuid
+  recipeId     String @db.Uuid
+  order        Int
+  text         String @db.VarChar(500)
+  timerMinutes Int?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, order])
+}
+
+model MenuEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  date        DateTime @db.Date
+  meal        Meal
+  recipeId    String   @db.Uuid
+  servings    Int
+  order       Int      @default(0)
+  addedById   String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+  addedBy   User?     @relation("MenuAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, date])
+}
+
+model ShoppingItem {
+  id            String         @id @default(uuid()) @db.Uuid
+  householdId   String         @db.Uuid
+  source        ShoppingSource
+  status        ShoppingStatus
+  name          String         @db.VarChar(40)
+  category      Department
+  quantity      Float?
+  unit          String?        @db.VarChar(15)
+  ingredientId  String?        @db.Uuid
+  weekStart     DateTime?      @db.Date // רק לפריטים שנוצרו מהתפריט (AUTO)
+  requestedById String?        @db.Uuid
+  reviewedById  String?        @db.Uuid
+  reviewedAt    DateTime?
+  boughtById    String?        @db.Uuid
+  boughtAt      DateTime?
+  createdAt     DateTime       @default(now())
+
+  household   Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  requestedBy User?       @relation("ShoppingRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?       @relation("ShoppingReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  boughtBy    User?       @relation("ShoppingBoughtBy", fields: [boughtById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, status])
+}
+
+model Vote {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @db.Uuid
+  userId    String   @db.Uuid
+  weekStart DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId, weekStart])
+}
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId])
+}
+
+model Task {
+  id            String     @id @default(uuid()) @db.Uuid
+  householdId   String     @db.Uuid
+  title         String     @db.VarChar(80)
+  dueDate       DateTime?  @db.Date
+  status        TaskStatus @default(OPEN)
+  completedAt   DateTime?
+  isErevShabbat Boolean    @default(false)
+  templateId    String?    @db.Uuid
+  assignedToId  String     @db.Uuid
+  createdById   String?    @db.Uuid
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  household  Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  assignedTo User          @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: Cascade)
+  createdBy  User?         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  template   TaskTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, status])
+  @@index([assignedToId])
+}
+
+// משימה קבועה לערב שבת. daysBeforeShabbat: 0 = יום שישי, 1 = חמישי, 2 = רביעי
+model TaskTemplate {
+  id                String   @id @default(uuid()) @db.Uuid
+  householdId       String   @db.Uuid
+  title             String   @db.VarChar(80)
+  daysBeforeShabbat Int      @default(0)
+  defaultAssigneeId String?  @db.Uuid
+  createdAt         DateTime @default(now())
+
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  defaultAssignee User?     @relation("TemplateAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  tasks           Task[]
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  text      String           @db.VarChar(200)
+  link      String?          @db.VarChar(200)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}

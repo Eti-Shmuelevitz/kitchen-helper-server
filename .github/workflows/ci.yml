@@ -1,0 +1,46 @@
+# בדיקה אוטומטית ב־GitHub: בכל העלאה של קוד רצים typecheck, build וכל הבדיקות מול PostgreSQL אמיתי.
+# התוצאה מופיעה בלשונית Actions של המאגר.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kitchen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kitchen_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kitchen_test?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kitchen_shadow?schema=public
+      JWT_SECRET: ci-secret-that-is-long-enough-for-hs256-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npx prisma generate
+      - name: המיגרציה תואמת בדיוק ל־schema.prisma
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE kitchen_shadow"
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
